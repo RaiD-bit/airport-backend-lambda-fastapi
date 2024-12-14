@@ -7,7 +7,7 @@ from enum import unique
 from mangum import Mangum
 
 import pandas as pd
-from fastapi import FastAPI, Path, status, HTTPException
+from fastapi import FastAPI, Path, status, HTTPException, Depends
 import uvicorn
 from motor.motor_asyncio import AsyncIOMotorClient
 import random
@@ -17,6 +17,7 @@ from dal import JobsDAL, ShiftUpdateRequest, UserListDAL, User, UserRequest, Job
 from typing import Annotated, List
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.memory import MemoryJobStore
+
 from apscheduler.triggers.cron import CronTrigger
 from dotenv import load_dotenv
 import resend
@@ -36,6 +37,13 @@ DEBUG = os.environ.get("DEBUG", "").strip().lower() in {"1", "true", "on", "yes"
 jobstores = {
     'default': MemoryJobStore()
 }
+
+async def get_database_connection():
+    if not hasattr(get_database_connection, "client"):
+        get_database_connection.client = AsyncIOMotorClient(MONGODB_URI)
+    return get_database_connection.client.get_default_database()
+
+
 
 try:
     client = AsyncIOMotorClient(MONGODB_URI)
@@ -66,19 +74,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+async def get_users_dal():
+    db = await get_database_connection()
+    return UserListDAL(db.get_collection(USER_COLLECTION_NAME))
+
+async def get_jobs_dal():
+    db = await get_database_connection()
+    return JobsDAL(db.get_collection(JOB_COLLECTION_NAME))
 
 @app.get("/api/users")
-async def get_all_users() -> list[User]:
-    return await users.get_user_list()
+async def get_all_users(users_dal: UserListDAL = Depends(get_users_dal)) -> list[User]:
+    return await users_dal.get_user_list()
 
 
 # add user
 @app.post("/api/users")
-async def create_user(user: UserRequest):
+async def create_user(user: UserRequest, users_dal: UserListDAL = Depends(get_users_dal), jobs_dal: JobsDAL = Depends(get_jobs_dal)):
     try:
-        await users.create_user(user)
+        await users_dal.create_user(user)
         # add that user to todays job document as well
-        await jobs.add_user_to_current_job_doc(datetime.today().strftime('%Y-%m-%d'), user.employeeId)
+        await jobs_dal.add_user_to_current_job_doc(datetime.today().strftime('%Y-%m-%d'), user.employeeId)
         return {"message": "User created successfully"}
     except DuplicateKeyError:
         raise HTTPException(status_code=400, detail="User already exists")
@@ -90,8 +105,10 @@ async def create_user(user: UserRequest):
 @app.patch("/api/users/update_shift/{employeeId}")
 async def update_user_shift(
         employeeId: Annotated[str, Path(title="employee id for the employee whose shift you want to change")],
-        shift: ShiftUpdateRequest):
-    return await users.update_user_shift(employeeId, shift.shift)
+        shift: ShiftUpdateRequest,
+        users_dal: UserListDAL = Depends(get_users_dal),
+        jobs_dal: JobsDAL = Depends(get_jobs_dal)):
+    return await users_dal.update_user_shift(employeeId, shift.shift)
 
 
 @app.get("/api")
@@ -100,15 +117,15 @@ async def index():
 
 
 @app.get("/api/jobdoc/{date_string}")
-async def getJobDoc(date_string: str):
-    return await jobs.get_job_doc(date_string)
+async def getJobDoc(date_string: str, jobs_dal: JobsDAL = Depends(get_jobs_dal)):
+    return await jobs_dal.get_job_doc(date_string)
 
 
 @app.post("/api/jobdoc")
-async def createJobDoc(date: datetime):
+async def createJobDoc(date: datetime, jobs_dal: JobsDAL = Depends(get_jobs_dal)):
     emp_id_list = await get_employee_list()
 
-    return await jobs.create_job_doc(date, emp_id_list)
+    return await jobs_dal.create_job_doc(date, emp_id_list)
 
 async def get_employee_list():
     emp_ids = await users.get_user_info({}, {"_id": 0, "employeeId": 1})
@@ -119,31 +136,31 @@ async def get_employee_list():
 
 
 @app.post("/api/jobdoc/{date_string}")
-async def update_user_status(date_string: str, user_update_request: list[JobUserItem]):
-    return await jobs.update_user_status(date_string, user_update_request)
+async def update_user_status(date_string: str, user_update_request: list[JobUserItem], jobs_dal: JobsDAL = Depends(get_jobs_dal)):
+    return await jobs_dal.update_user_status(date_string, user_update_request)
 
 
-async def create_daily_job_doc():
+async def create_daily_job_doc(users_dal: UserListDAL = Depends(get_users_dal), jobs_dal: JobsDAL = Depends(get_jobs_dal)):
     print("create_daily_job_doc is triggered")
-    emp_ids = await users.get_user_info({}, {"_id": 0, "employeeId": 1})
+    emp_ids = await users_dal.get_user_info({}, {"_id": 0, "employeeId": 1})
     # get list of employee ids
     emp_id_list = l2 = [e['employeeId'] for e in emp_ids]
     print(f"emp_ids: {emp_id_list}")
     today = datetime.today()
-    return await jobs.create_job_doc(today, emp_id_list)
+    return await jobs_dal.create_job_doc(today, emp_id_list)
 
 
 # change shifts in job doc
 
 @app.post("/api/jobdoc/update_shift/{date_string}")
-async def update_shift_details_in_jobdoc(date_string: str, shift_update_reguest: ShiftDetail):
-    return await jobs.update_shift_details_in_jobdoc(date_string, shift_update_reguest)
+async def update_shift_details_in_jobdoc(date_string: str, shift_update_reguest: ShiftDetail, jobs_dal: JobsDAL = Depends(get_jobs_dal)):
+    return await jobs_dal.update_shift_details_in_jobdoc(date_string, shift_update_reguest)
     pass
 
 
 @app.get("/api/jobdoc/{date_string}/getEmployeeByShift/{shift}")
-async def get_employee_by_shift(date_string: str, shift: str):
-    userlist = await jobs.get_active_users_id_by_shift(date_string, shift)
+async def get_employee_by_shift(date_string: str, shift: str, jobs_dal: JobsDAL = Depends(get_jobs_dal)):
+    userlist = await jobs_dal.get_active_users_id_by_shift(date_string, shift)
     # print(userlist)
     userDetailsList = await map_user_details(userlist)
     return userDetailsList
@@ -175,18 +192,18 @@ def get_random(user_list: List[EmployeeByShiftResponse]):
 
 
 @app.get("/api/randomizer/{shift}")
-async def get_random_users_by_shift(shift: str, date_string: str) -> RandomizerResponse1:
-    user_list = await jobs.get_active_users_id_by_shift(date_string, shift)
+async def get_random_users_by_shift(shift: str, date_string: str, jobs_dal: JobsDAL = Depends(get_jobs_dal)) -> RandomizerResponse1:
+    user_list = await jobs_dal.get_active_users_id_by_shift(date_string, shift)
     # print(f"user_list: {user_list}")
     res = get_random(user_list)
     final_response = RandomizerResponse1.from_doc(res)
-    await jobs.update_randomizer_run_in_job_doc(final_response,date_string, shift)
+    await jobs_dal.update_randomizer_run_in_job_doc(final_response,date_string, shift)
     return final_response
 
 
 @app.post("/api/randomizer/send/{shift}")
-async def randomize_and_send(shift: str, date_str: str):
-    user_list = await jobs.get_active_users_id_by_shift(date_str, shift)
+async def randomize_and_send(shift: str, date_str: str, jobs_dal: JobsDAL = Depends(get_jobs_dal)):
+    user_list = await jobs_dal.get_active_users_id_by_shift(date_str, shift)
     res = get_random(user_list)
     random_response = RandomizerResponse1.from_doc(res)
 
@@ -201,10 +218,10 @@ async def randomize_and_send(shift: str, date_str: str):
     for user in random_response.standbyList:
         standby_list_mail_ids.append((user.name, user.email))
 
-    return ""
+    return {"mainList": main_list_mail_ids, "standbyList": standby_list_mail_ids}
 
 
-def send_emails(info: []):
+def send_emails(info: list[tuple[str, str]]):
     emails = [mail[0] for mail in info]
     print(f"emails: {emails}")
     params: resend.Emails.SendParams = {
@@ -247,8 +264,8 @@ def clean_data_for_csv(data):
 
 
 @app.get("/api/generateReport/{date_string}")
-async def generate_report(date_string: str):
-    res = await jobs.get_job_doc(date_string)
+async def generate_report(date_string: str, jobs_dal: JobsDAL = Depends(get_jobs_dal)):
+    res = await jobs_dal.get_job_doc(date_string)
 
     print(f"res: {res} type: {type(res)} ")
 
