@@ -290,7 +290,8 @@ async def generate_report(date_string: str):
 
 @app.get("/api/health")
 async def get_health():
-    return "all OK"
+    print("aaya hu yha tak dekh")
+    return {"message": "all ok" , "db": USER_COLLECTION_NAME}
 
 
 @app.post("/api/sendmail")
