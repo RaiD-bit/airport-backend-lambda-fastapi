@@ -37,6 +37,20 @@ jobstores = {
     'default': MemoryJobStore()
 }
 
+try:
+    client = AsyncIOMotorClient(MONGODB_URI)
+    db = client.get_default_database()
+    # pong = await db.command("ping")
+    # if int(pong["ok"]) != 1:
+    #     raise Exception("cluster connection in not ok")
+
+    user_coll = db.get_collection(USER_COLLECTION_NAME)
+    job_coll = db.get_collection(JOB_COLLECTION_NAME)
+    # app.users = UserListDAL(user_coll)
+    # app.jobs = JobsDAL(job_coll)
+except:
+    print(f"error connecting to db")
+
 # Initialize an AsyncIOScheduler with the jobstore
 scheduler = AsyncIOScheduler(jobstores=jobstores, timezone='Asia/Kolkata')
 
@@ -90,7 +104,8 @@ app.add_middleware(
 
 @app.get("/api/users")
 async def get_all_users() -> list[User]:
-    return await app.users.get_user_list()
+    users = UserListDAL(user_coll)
+    return await users.get_user_list()
 
 
 # add user
@@ -316,7 +331,7 @@ def main(argv=sys.argv[1:]):
         pass
 
 
-handler = Mangum(app=app, lifespan="on")
+handler = Mangum(app=app, lifespan="off")
 
 
 # if __name__ == "__main__":
