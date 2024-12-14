@@ -317,6 +317,6 @@ def main(argv=sys.argv[1:]):
 handler = Mangum(app=app)
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
 
