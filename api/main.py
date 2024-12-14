@@ -61,17 +61,18 @@ async def lifespan(app: FastAPI):
     job_coll = db.get_collection(JOB_COLLECTION_NAME)
     app.users = UserListDAL(user_coll)
     app.jobs = JobsDAL(job_coll)
-    scheduler.start()
-    scheduler.add_job(create_daily_job_doc, CronTrigger(hour=0, minute=5))
+    
+    # scheduler.start()
+    # scheduler.add_job(create_daily_job_doc, CronTrigger(hour=0, minute=5))
     # create indexes for user methods
-    await user_coll.create_index([("employeeId", 1)], unique=True)
-    await user_coll.create_index([("phone", 1)], unique=True)
-    await user_coll.create_index([("email", 1)], unique=True)
+    # await user_coll.create_index([("employeeId", 1)], unique=True)
+    # await user_coll.create_index([("phone", 1)], unique=True)
+    # await user_coll.create_index([("email", 1)], unique=True)
 
     # check if job doc for today is present
-    today = datetime.today()
-    emp_id_list = await get_employee_list()
-    await app.jobs.create_job_doc(today, emp_id_list)
+    # today = datetime.today()
+    # emp_id_list = await get_employee_list()
+    # await app.jobs.create_job_doc(today, emp_id_list)
 
     yield
     client.close()
