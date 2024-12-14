@@ -11,8 +11,9 @@ from fastapi import FastAPI, Path, status, HTTPException
 import uvicorn
 from motor.motor_asyncio import AsyncIOMotorClient
 import random
-from dal import JobsDAL, ShiftUpdateRequest, UserListDAL, User, UserRequest, JobUserItem, ShiftDetail, \
+from api.dal import JobsDAL, ShiftUpdateRequest, UserListDAL, User, UserRequest, JobUserItem, ShiftDetail, \
     EmployeeByShiftResponse, RandomizerResponse1
+
 from typing import Annotated, List
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.memory import MemoryJobStore
