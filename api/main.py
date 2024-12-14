@@ -114,13 +114,14 @@ async def getJobDoc(date_string: str, jobs_dal: JobsDAL = Depends(get_jobs_dal))
 
 
 @app.post("/api/jobdoc")
-async def createJobDoc(date: datetime, jobs_dal: JobsDAL = Depends(get_jobs_dal)):
-    emp_id_list = await get_employee_list()
+async def createJobDoc(date: datetime, jobs_dal: JobsDAL = Depends(get_jobs_dal), users_dal: UserListDAL = Depends(get_users_dal)):
+    emp_id_list = await get_employee_list(users_dal)
 
     return await jobs_dal.create_job_doc(date, emp_id_list)
 
-async def get_employee_list(users_dal: UserListDAL = Depends(get_users_dal)):
+async def get_employee_list(users_dal: UserListDAL):
     emp_ids = await users_dal.get_user_info({}, {"_id": 0, "employeeId": 1})
+    
     # get list of employee ids
     emp_id_list = l2 = [e['employeeId'] for e in emp_ids]
     print(f"emp_ids: {emp_id_list}")
