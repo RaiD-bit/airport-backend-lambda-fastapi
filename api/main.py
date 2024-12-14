@@ -315,7 +315,7 @@ def main(argv=sys.argv[1:]):
         pass
 
 
-handler = Mangum(app=app, lifespan="off")
+handler = Mangum(app=app, lifespan="on")
 
 
 # if __name__ == "__main__":
