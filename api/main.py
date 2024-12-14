@@ -18,47 +18,36 @@ from dal import JobsDAL, ShiftUpdateRequest, UserListDAL, User, UserRequest, Job
 #     EmployeeByShiftResponse, RandomizerResponse1
 
 from typing import Annotated, List
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.jobstores.memory import MemoryJobStore
 
-from apscheduler.triggers.cron import CronTrigger
+
 from dotenv import load_dotenv
 import resend
 from pymongo.errors import DuplicateKeyError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from functools import lru_cache
 
 env_path = '.env'
 load_dotenv(env_path)
-USER_COLLECTION_NAME = os.environ["USER_DB_COLLECTION_NAME"]
-JOB_COLLECTION_NAME = os.environ["JOB_COLLECTION_NAME"]
-MONGODB_URI = os.environ["MONGODB_URI"]
-RESEND_API_KEY = os.environ["RESEND_API_KEY"]
 
 DEBUG = os.environ.get("DEBUG", "").strip().lower() in {"1", "true", "on", "yes"}
 
-jobstores = {
-    'default': MemoryJobStore()
-}
+
+
+@lru_cache()
+def get_config():
+    return {
+        "MONGODB_URI": os.environ["MONGODB_URI"],
+        "USER_COLLECTION_NAME": os.environ["USER_DB_COLLECTION_NAME"],
+        "JOB_COLLECTION_NAME": os.environ["JOB_COLLECTION_NAME"],
+        "RESEND_API_KEY": os.environ["RESEND_API_KEY"],     
+    }
 
 async def get_database_connection():
     if not hasattr(get_database_connection, "client"):
-        get_database_connection.client = AsyncIOMotorClient(MONGODB_URI)
+        get_database_connection.client = AsyncIOMotorClient(get_config()["MONGODB_URI"])
     return get_database_connection.client.get_default_database()
 
-
-
-try:
-    client = AsyncIOMotorClient(MONGODB_URI)
-    db = client.get_default_database()
-
-    user_coll = db.get_collection(USER_COLLECTION_NAME)
-    job_coll = db.get_collection(JOB_COLLECTION_NAME)
-    users = UserListDAL(user_coll)
-    jobs = JobsDAL(job_coll)
-
-except:
-    print(f"error connecting to db")
 
 origins = [
     "http://localhost",
@@ -79,11 +68,11 @@ app.add_middleware(
 
 async def get_users_dal():
     db = await get_database_connection()
-    return UserListDAL(db.get_collection(USER_COLLECTION_NAME))
+    return UserListDAL(db.get_collection(get_config()["USER_COLLECTION_NAME"]))
 
 async def get_jobs_dal():
     db = await get_database_connection()
-    return JobsDAL(db.get_collection(JOB_COLLECTION_NAME))
+    return JobsDAL(db.get_collection(get_config()["JOB_COLLECTION_NAME"]))
 
 @app.get("/api/users")
 async def get_all_users(users_dal: UserListDAL = Depends(get_users_dal)) -> list[User]:
@@ -130,8 +119,8 @@ async def createJobDoc(date: datetime, jobs_dal: JobsDAL = Depends(get_jobs_dal)
 
     return await jobs_dal.create_job_doc(date, emp_id_list)
 
-async def get_employee_list():
-    emp_ids = await users.get_user_info({}, {"_id": 0, "employeeId": 1})
+async def get_employee_list(users_dal: UserListDAL = Depends(get_users_dal)):
+    emp_ids = await users_dal.get_user_info({}, {"_id": 0, "employeeId": 1})
     # get list of employee ids
     emp_id_list = l2 = [e['employeeId'] for e in emp_ids]
     print(f"emp_ids: {emp_id_list}")
@@ -269,29 +258,27 @@ def clean_data_for_csv(data):
 @app.get("/api/generateReport/{date_string}")
 async def generate_report(date_string: str, jobs_dal: JobsDAL = Depends(get_jobs_dal)):
     res = await jobs_dal.get_job_doc(date_string)
-
-    print(f"res: {res} type: {type(res)} ")
-
+    
+    # Use chunks for large datasets
     log_as_dicts = [item.dict() for item in res.randomizerLog]
-    print(log_as_dicts)
     data = log_as_dicts
-    # print(data)
     data = clean_data_for_csv(data)
     df = pd.DataFrame(data)
-    # df["triggerDateTime"] = df["triggerDateTime"].dt.tz_localize(None)
-    # print(df)
     buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+    with pd.ExcelWriter(buffer, engine="openpyxl", mode='w') as writer:
         df.to_excel(writer, index=False, sheet_name="sheet1")
     buffer.seek(0)
-    return StreamingResponse(buffer,
+    
+    return StreamingResponse(
+        buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=report.xlsx"})
+        headers={"Content-Disposition": f"attachment; filename=report-{date_string}.xlsx"}
+    )
 
 @app.get("/api/health")
 async def get_health():
     print("aaya hu yha tak dekh")
-    return {"message": "all ok" , "db": USER_COLLECTION_NAME}
+    return {"message": "all ok" , "db": get_config()["USER_COLLECTION_NAME"]}
 
 
 @app.post("/api/sendmail")
