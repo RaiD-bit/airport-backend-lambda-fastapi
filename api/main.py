@@ -40,19 +40,14 @@ jobstores = {
 try:
     client = AsyncIOMotorClient(MONGODB_URI)
     db = client.get_default_database()
-    # pong = await db.command("ping")
-    # if int(pong["ok"]) != 1:
-    #     raise Exception("cluster connection in not ok")
 
     user_coll = db.get_collection(USER_COLLECTION_NAME)
     job_coll = db.get_collection(JOB_COLLECTION_NAME)
-    # app.users = UserListDAL(user_coll)
-    # app.jobs = JobsDAL(job_coll)
+    users = UserListDAL(user_coll)
+    jobs = JobsDAL(job_coll)
+
 except:
     print(f"error connecting to db")
-
-# Initialize an AsyncIOScheduler with the jobstore
-scheduler = AsyncIOScheduler(jobstores=jobstores, timezone='Asia/Kolkata')
 
 origins = [
     "http://localhost",
@@ -62,37 +57,7 @@ origins = [
     "https://farmtest-raid-bits-projects.vercel.app"
 ]
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    client = AsyncIOMotorClient(MONGODB_URI)
-    db = client.get_default_database()
-    pong = await db.command("ping")
-    if int(pong["ok"]) != 1:
-        raise Exception("cluster connection in not ok")
-
-    user_coll = db.get_collection(USER_COLLECTION_NAME)
-    job_coll = db.get_collection(JOB_COLLECTION_NAME)
-    app.users = UserListDAL(user_coll)
-    app.jobs = JobsDAL(job_coll)
-    
-    # scheduler.start()
-    # scheduler.add_job(create_daily_job_doc, CronTrigger(hour=0, minute=5))
-    # create indexes for user methods
-    # await user_coll.create_index([("employeeId", 1)], unique=True)
-    # await user_coll.create_index([("phone", 1)], unique=True)
-    # await user_coll.create_index([("email", 1)], unique=True)
-
-    # check if job doc for today is present
-    # today = datetime.today()
-    # emp_id_list = await get_employee_list()
-    # await app.jobs.create_job_doc(today, emp_id_list)
-
-    yield
-    client.close()
-
-
-app = FastAPI(lifespan=lifespan, debug=DEBUG)
+app = FastAPI(debug=DEBUG)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -104,7 +69,6 @@ app.add_middleware(
 
 @app.get("/api/users")
 async def get_all_users() -> list[User]:
-    users = UserListDAL(user_coll)
     return await users.get_user_list()
 
 
@@ -112,9 +76,9 @@ async def get_all_users() -> list[User]:
 @app.post("/api/users")
 async def create_user(user: UserRequest):
     try:
-        await app.users.create_user(user)
+        await users.create_user(user)
         # add that user to todays job document as well
-        await app.jobs.add_user_to_current_job_doc(datetime.today().strftime('%Y-%m-%d'), user.employeeId)
+        await jobs.add_user_to_current_job_doc(datetime.today().strftime('%Y-%m-%d'), user.employeeId)
         return {"message": "User created successfully"}
     except DuplicateKeyError:
         raise HTTPException(status_code=400, detail="User already exists")
@@ -127,7 +91,7 @@ async def create_user(user: UserRequest):
 async def update_user_shift(
         employeeId: Annotated[str, Path(title="employee id for the employee whose shift you want to change")],
         shift: ShiftUpdateRequest):
-    return await app.users.update_user_shift(employeeId, shift.shift)
+    return await users.update_user_shift(employeeId, shift.shift)
 
 
 @app.get("/api")
@@ -137,17 +101,17 @@ async def index():
 
 @app.get("/api/jobdoc/{date_string}")
 async def getJobDoc(date_string: str):
-    return await app.jobs.get_job_doc(date_string)
+    return await jobs.get_job_doc(date_string)
 
 
 @app.post("/api/jobdoc")
 async def createJobDoc(date: datetime):
     emp_id_list = await get_employee_list()
 
-    return await app.jobs.create_job_doc(date, emp_id_list)
+    return await jobs.create_job_doc(date, emp_id_list)
 
 async def get_employee_list():
-    emp_ids = await app.users.get_user_info({}, {"_id": 0, "employeeId": 1})
+    emp_ids = await users.get_user_info({}, {"_id": 0, "employeeId": 1})
     # get list of employee ids
     emp_id_list = l2 = [e['employeeId'] for e in emp_ids]
     print(f"emp_ids: {emp_id_list}")
@@ -156,30 +120,30 @@ async def get_employee_list():
 
 @app.post("/api/jobdoc/{date_string}")
 async def update_user_status(date_string: str, user_update_request: list[JobUserItem]):
-    return await app.jobs.update_user_status(date_string, user_update_request)
+    return await jobs.update_user_status(date_string, user_update_request)
 
 
 async def create_daily_job_doc():
     print("create_daily_job_doc is triggered")
-    emp_ids = await app.users.get_user_info({}, {"_id": 0, "employeeId": 1})
+    emp_ids = await users.get_user_info({}, {"_id": 0, "employeeId": 1})
     # get list of employee ids
     emp_id_list = l2 = [e['employeeId'] for e in emp_ids]
     print(f"emp_ids: {emp_id_list}")
     today = datetime.today()
-    return await app.jobs.create_job_doc(today, emp_id_list)
+    return await jobs.create_job_doc(today, emp_id_list)
 
 
 # change shifts in job doc
 
 @app.post("/api/jobdoc/update_shift/{date_string}")
 async def update_shift_details_in_jobdoc(date_string: str, shift_update_reguest: ShiftDetail):
-    return await app.jobs.update_shift_details_in_jobdoc(date_string, shift_update_reguest)
+    return await jobs.update_shift_details_in_jobdoc(date_string, shift_update_reguest)
     pass
 
 
 @app.get("/api/jobdoc/{date_string}/getEmployeeByShift/{shift}")
 async def get_employee_by_shift(date_string: str, shift: str):
-    userlist = await app.jobs.get_active_users_id_by_shift(date_string, shift)
+    userlist = await jobs.get_active_users_id_by_shift(date_string, shift)
     # print(userlist)
     userDetailsList = await map_user_details(userlist)
     return userDetailsList
@@ -212,17 +176,17 @@ def get_random(user_list: List[EmployeeByShiftResponse]):
 
 @app.get("/api/randomizer/{shift}")
 async def get_random_users_by_shift(shift: str, date_string: str) -> RandomizerResponse1:
-    user_list = await app.jobs.get_active_users_id_by_shift(date_string, shift)
+    user_list = await jobs.get_active_users_id_by_shift(date_string, shift)
     # print(f"user_list: {user_list}")
     res = get_random(user_list)
     final_response = RandomizerResponse1.from_doc(res)
-    await app.jobs.update_randomizer_run_in_job_doc(final_response,date_string, shift)
+    await jobs.update_randomizer_run_in_job_doc(final_response,date_string, shift)
     return final_response
 
 
 @app.post("/api/randomizer/send/{shift}")
 async def randomize_and_send(shift: str, date_str: str):
-    user_list = await app.jobs.get_active_users_id_by_shift(date_str, shift)
+    user_list = await jobs.get_active_users_id_by_shift(date_str, shift)
     res = get_random(user_list)
     random_response = RandomizerResponse1.from_doc(res)
 
@@ -284,7 +248,7 @@ def clean_data_for_csv(data):
 
 @app.get("/api/generateReport/{date_string}")
 async def generate_report(date_string: str):
-    res = await app.jobs.get_job_doc(date_string)
+    res = await jobs.get_job_doc(date_string)
 
     print(f"res: {res} type: {type(res)} ")
 
@@ -332,8 +296,3 @@ def main(argv=sys.argv[1:]):
 
 
 handler = Mangum(app=app, lifespan="off")
-
-
-# if __name__ == "__main__":
-#     main()
-
