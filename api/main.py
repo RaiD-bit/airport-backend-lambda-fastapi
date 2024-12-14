@@ -11,7 +11,7 @@ from fastapi import FastAPI, Path, status, HTTPException
 import uvicorn
 from motor.motor_asyncio import AsyncIOMotorClient
 import random
-from api.dal import JobsDAL, ShiftUpdateRequest, UserListDAL, User, UserRequest, JobUserItem, ShiftDetail, \
+from dal import JobsDAL, ShiftUpdateRequest, UserListDAL, User, UserRequest, JobUserItem, ShiftDetail, \
     EmployeeByShiftResponse, RandomizerResponse1
 
 from typing import Annotated, List
