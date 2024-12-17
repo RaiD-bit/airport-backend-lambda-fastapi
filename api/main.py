@@ -54,7 +54,8 @@ origins = [
     "http://localhost:8080",
     "https://farmtest-muqdlzj4k-raid-bits-projects.vercel.app",
     "https://farmtest.vercel.app",
-    "https://farmtest-raid-bits-projects.vercel.app"
+    "https://farmtest-raid-bits-projects.vercel.app",
+    "*"
 ]
 
 app = FastAPI(debug=DEBUG)
