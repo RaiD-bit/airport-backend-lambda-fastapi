@@ -109,6 +109,11 @@ async def index():
     return {"message": "yo yo honey singh!!"}
 
 
+@app.get("/api/authtest")
+async def auth_test():
+    return {"message": "testting auth!!"}
+
+
 @app.get("/api/jobdoc/{date_string}")
 async def getJobDoc(date_string: str, jobs_dal: JobsDAL = Depends(get_jobs_dal)):
     return await jobs_dal.get_job_doc(date_string)
