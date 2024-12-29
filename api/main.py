@@ -11,6 +11,9 @@ from fastapi import FastAPI, Path, status, HTTPException, Depends
 import uvicorn
 from motor.motor_asyncio import AsyncIOMotorClient
 import random
+
+from openpyxl.pivot.cache import Query
+
 from dal import JobsDAL, ShiftUpdateRequest, UserListDAL, User, UserRequest, JobUserItem, ShiftDetail, \
     EmployeeByShiftResponse, RandomizerResponse1
 
@@ -148,7 +151,7 @@ async def getJobDoc(date_string: str, jobs_dal: JobsDAL = Depends(get_jobs_dal))
 
 
 @app.post("/api/jobdoc")
-async def createJobDoc(date: datetime, jobs_dal: JobsDAL = Depends(get_jobs_dal), users_dal: UserListDAL = Depends(get_users_dal)):
+async def createJobDoc(date: datetime = Query(...), jobs_dal: JobsDAL = Depends(get_jobs_dal), users_dal: UserListDAL = Depends(get_users_dal)):
     emp_id_list = await get_employee_list(users_dal)
 
     return await jobs_dal.create_job_doc(date, emp_id_list)
