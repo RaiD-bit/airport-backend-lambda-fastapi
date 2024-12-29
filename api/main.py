@@ -92,6 +92,34 @@ async def create_user(user: UserRequest, users_dal: UserListDAL = Depends(get_us
         raise HTTPException(status_code=400, detail="User already exists")
 
 
+@app.delete("/api/users/{userId}")
+async def delete_user_by_userId(
+        userId: str,
+        users_dal: UserListDAL = Depends(get_users_dal),
+        jobs_dal: JobsDAL = Depends(get_jobs_dal)
+):
+    try:
+        # Delete user from user collection
+        
+        # await users_dal.delete_user_by_email(userId)
+
+        # Remove user from today's job document
+        # await jobs_dal.remove_user_from_current_job_doc(datetime.today().strftime('%Y-%m-%d'), userId)
+
+        async with await get_database_connection().start_session()  as session:
+            async with session.start_transaction():
+                # Delete user from user collection
+                await users_dal.delete_user_by_email(userId)
+
+                # Remove user from today's job document
+                await jobs_dal.remove_user_from_current_job_doc(datetime.today().strftime('%Y-%m-%d'), userId)
+        return {"message": "User deleted successfully"}
+    except HTTPException as e:
+        raise HTTPException(status_code=e.status_code, detail=e.detail)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="An error occurred while deleting the user")
+
+
 # update user
 
 # update shift

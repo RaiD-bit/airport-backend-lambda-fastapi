@@ -101,6 +101,9 @@ class UserListDAL:
         print(f"response => {response.inserted_id}")
         return str(response.inserted_id)
 
+    async def delete_user_by_email(self, email):
+        res = self._user_collection.delete_one({"email": email})
+
 
 class JobUserItem(BaseModel):
     userid: str
@@ -388,6 +391,12 @@ class JobsDAL:
         await query.to_list(length=None)
         print(f"done adding randomizer response to job doc {pipeline}")
 
+    async def remove_user_from_current_job_doc(self, date, userId):
+        print(f"date str : {date}")
+        await self._jobs_collection.update_one(
+            {"dateDocId": date},  # Match the document with the specific dateDocId
+            {"$pull": {"users": {"userid": userId}}}  # Remove the user with the given userid
+        )
 
 
 '''
