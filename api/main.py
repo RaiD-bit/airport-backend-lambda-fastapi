@@ -7,12 +7,10 @@ from enum import unique
 from mangum import Mangum
 
 import pandas as pd
-from fastapi import FastAPI, Path, status, HTTPException, Depends
+from fastapi import FastAPI, Path, status, HTTPException, Depends,Query
 import uvicorn
 from motor.motor_asyncio import AsyncIOMotorClient
 import random
-
-from openpyxl.pivot.cache import Query
 
 from dal import JobsDAL, ShiftUpdateRequest, UserListDAL, User, UserRequest, JobUserItem, ShiftDetail, \
     EmployeeByShiftResponse, RandomizerResponse1
