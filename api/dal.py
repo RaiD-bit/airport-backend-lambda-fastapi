@@ -311,6 +311,11 @@ class JobsDAL:
         res = await self._jobs_collection.update_one(filter={"dateDocId": date_str}, update={"$set": set_dict})
         return {"updated_id": str(res.modified_count)}
 
+    async def get_shift_details_from_job_doc(self, date_str: str, session=None):
+        res = await self._jobs_collection.find_one({"dateDocId": date_str})
+        return res["shiftDetail"]
+
+
     async def get_active_users_id_by_shift(self, date_str: str, shift: str, session=None):
         query = self._jobs_collection.aggregate(
             [
@@ -354,7 +359,7 @@ class JobsDAL:
         return res
 
 
-    async def update_randomizer_run_in_job_doc(self, response: RandomizerResponse1,date_str: str,shift: str, session=None):
+    async def update_randomizer_run_in_job_doc(self, response: RandomizerResponse1,date_str: str,team: str,shift: str, session=None):
         print(f"response : {response}")
         hh = response.model_dump()
         print(f"hh : {hh}")
@@ -370,8 +375,9 @@ class JobsDAL:
                             '$concatArrays': [
                                 '$randomizerLog', [
                                     {
-                                        'triggerDateTime': '2024-11-23T18:16:16.096+00:00',
+                                        'triggerDateTime': datetime.now(),
                                         'shift': shift,
+                                        'allotedTeam': team,
                                         'randomizerResult': hh
                                     }
                                 ]

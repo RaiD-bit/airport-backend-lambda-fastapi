@@ -7,7 +7,7 @@ from enum import unique
 from mangum import Mangum
 
 import pandas as pd
-from fastapi import FastAPI, Path, status, HTTPException, Depends,Query
+from fastapi import FastAPI, Path, logger, status, HTTPException, Depends,Query
 import uvicorn
 from motor.motor_asyncio import AsyncIOMotorClient
 import random
@@ -231,12 +231,16 @@ async def get_random_users_by_shift(shift: str, date_string: str, jobs_dal: Jobs
 
 @app.post("/api/randomizer/send/{shift}")
 async def randomize_and_send(shift: str, date_str: str, jobs_dal: JobsDAL = Depends(get_jobs_dal)):
-    user_list = await jobs_dal.get_active_users_id_by_shift(date_str, shift)
+    # get shift details
+    shift_details = await jobs_dal.get_shift_details_from_job_doc(date_str, shift)
+    allotted_team = shift_details[shift]
+    print(f"allotted_team: {allotted_team}")
+    user_list = await jobs_dal.get_active_users_id_by_shift(date_str, allotted_team)
     res = get_random(user_list)
     random_response = RandomizerResponse1.from_doc(res)
 
     # persist the user in the mail_job_doc
-
+    await jobs_dal.update_randomizer_run_in_job_doc(random_response,date_str, allotted_team, shift)
     # send the actual mail
     main_list_mail_ids = []
     standby_list_mail_ids = []
