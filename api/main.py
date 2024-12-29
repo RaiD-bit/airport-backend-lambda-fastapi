@@ -150,6 +150,7 @@ async def getJobDoc(date_string: str, jobs_dal: JobsDAL = Depends(get_jobs_dal))
 
 @app.post("/api/jobdoc")
 async def createJobDoc(date: datetime = Query(...), jobs_dal: JobsDAL = Depends(get_jobs_dal), users_dal: UserListDAL = Depends(get_users_dal)):
+    print(f"date: {date} inside createJobDoc")
     emp_id_list = await get_employee_list(users_dal)
 
     return await jobs_dal.create_job_doc(date, emp_id_list)
@@ -222,10 +223,13 @@ def get_random(user_list: List[EmployeeByShiftResponse]):
 @app.get("/api/randomizer/{shift}")
 async def get_random_users_by_shift(shift: str, date_string: str, jobs_dal: JobsDAL = Depends(get_jobs_dal)) -> RandomizerResponse1:
     user_list = await jobs_dal.get_active_users_id_by_shift(date_string, shift)
+    shift_details = await jobs_dal.get_shift_details_from_job_doc(date_string, shift)
+    allotted_team = shift_details[shift]
+    print(f"allotted_team: {allotted_team}")
     # print(f"user_list: {user_list}")
     res = get_random(user_list)
     final_response = RandomizerResponse1.from_doc(res)
-    await jobs_dal.update_randomizer_run_in_job_doc(final_response,date_string, shift)
+    await jobs_dal.update_randomizer_run_in_job_doc(final_response,date_string, date_string, shift)
     return final_response
 
 
