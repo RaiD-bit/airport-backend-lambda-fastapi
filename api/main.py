@@ -222,9 +222,9 @@ def get_random(user_list: List[EmployeeByShiftResponse]):
 
 @app.get("/api/randomizer/{shift}")
 async def get_random_users_by_shift(shift: str, date_string: str, jobs_dal: JobsDAL = Depends(get_jobs_dal)) -> RandomizerResponse1:
-    user_list = await jobs_dal.get_active_users_id_by_shift(date_string, shift)
     shift_details = await jobs_dal.get_shift_details_from_job_doc(date_string, shift)
     allotted_team = shift_details[shift]
+    user_list = await jobs_dal.get_active_users_id_by_shift(date_string, allotted_team)
     print(f"allotted_team: {allotted_team}")
     # print(f"user_list: {user_list}")
     res = get_random(user_list)
