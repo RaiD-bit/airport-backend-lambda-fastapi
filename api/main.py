@@ -261,7 +261,7 @@ def send_emails(info: list[tuple[str, str]]):
     emails = [mail[0] for mail in info]
     print(f"emails: {emails}")
     params: resend.Emails.SendParams = {
-        "from": "Acme <onboarding@resend.dev>",
+        "from": "Admin@controltowerdelhi.in",
         "to": emails,
         "subject": f"Be sober before shift",
         "html": f"<p>Hi! Please be ready for drug test before your shift</p>"
