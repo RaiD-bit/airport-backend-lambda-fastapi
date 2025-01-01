@@ -257,14 +257,20 @@ async def randomize_and_send(shift: str, date_str: str, jobs_dal: JobsDAL = Depe
     return {"mainList": main_list_mail_ids, "standbyList": standby_list_mail_ids}
 
 
-def send_emails(info: list[tuple[str, str]]):
+def send_emails(info: list[tuple[str, str]], type: str):
     emails = [mail[0] for mail in info]
     print(f"emails: {emails}")
+    html = ""
+    # change html based on type
+    if type == "main":
+        html = f"<p>Hi! Please be ready for drug test before your shift</p>"
+    elif type == "standby":
+        html = f"<p>Hi! Please be ready for drug test before your shift. Your are part of standby list</p>"
     params: resend.Emails.SendParams = {
         "from": "Admin@controltowerdelhi.in",
         "to": emails,
         "subject": f"Be sober before shift",
-        "html": f"<p>Hi! Please be ready for drug test before your shift</p>"
+        "html": html
     }
 
     email = resend.Emails.send(params)
@@ -328,15 +334,20 @@ async def get_health():
 @app.post("/api/sendmail")
 async def send_mail(response: RandomizerResponse1, shift: str | None = None):
     # handle main list
-    selected_emails = [(user.email, user.name) for user in response.mainList]
+    selected_emails_main = [(user.email, user.name) for user in response.mainList]
+    selected_emails_standBy = [(user.email, user.name) for user in response.standbyList]
 
     # update daily doc
 
+    send_mail_by_type(selected_emails_main, "main")
+    send_mail_by_type(selected_emails_main, "standby")
+    return {"status": "success"}
+
+def send_mail_by_type(selected_emails, type):
     batches = [selected_emails[i: i + 50] for i in range(0, len(selected_emails), 50)]
     for batch in batches:
         print(f"batch: {batch}")
-        send_emails(batch)
-    return {"status": "success"}
+        send_emails(batch, type)
 
 
 def main(argv=sys.argv[1:]):
