@@ -229,7 +229,7 @@ async def get_random_users_by_shift(shift: str, date_string: str, jobs_dal: Jobs
     # print(f"user_list: {user_list}")
     res = get_random(user_list)
     final_response = RandomizerResponse1.from_doc(res)
-    await jobs_dal.update_randomizer_run_in_job_doc(final_response,date_string, date_string, shift)
+    await jobs_dal.update_randomizer_run_in_job_doc(final_response,date_string, allotted_team, shift)
     return final_response
 
 
@@ -272,7 +272,7 @@ def send_emails(info: list[tuple[str, str]], type: str):
         "subject": f"Be sober before shift",
         "html": html
     }
-
+    resend.api_key = get_config()["RESEND_API_KEY"]
     email = resend.Emails.send(params)
 
     print(f"email: {email}")
@@ -338,9 +338,9 @@ async def send_mail(response: RandomizerResponse1, shift: str | None = None):
     selected_emails_standBy = [(user.email, user.name) for user in response.standbyList]
 
     # update daily doc
-
+    resend_api_key = get_config()["USER_COLLECTION_NAME"]
     send_mail_by_type(selected_emails_main, "main")
-    send_mail_by_type(selected_emails_main, "standby")
+    send_mail_by_type(selected_emails_standBy, "standby")
     return {"status": "success"}
 
 def send_mail_by_type(selected_emails, type):
