@@ -245,7 +245,7 @@ class JobsDAL:
         return {"inserted_id": str(res.inserted_id)}
 
     def populate_shifts(self, date_str, shift_detail):
-        days_passed_since_bigbang = (date_str - datetime(2024, 12, 31)).days
+        days_passed_since_bigbang = (date_str - datetime(2025, 1, 2)).days
         print(f"kitne din ho gye {days_passed_since_bigbang}")
         shift_info = ['echo', 'delta', 'charlie', 'bravo', 'alpha']
         current_index = days_passed_since_bigbang%5  
