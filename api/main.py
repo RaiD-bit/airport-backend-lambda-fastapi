@@ -1,6 +1,6 @@
 import io
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import sys
 from enum import unique
@@ -295,12 +295,17 @@ def send_emails(info: list[tuple[str, str]], type: str):
 
     print(f"email: {email}")
 
+def convert_to_ist_string(dt):
+    ist_offset = timedelta(hours=5, minutes=30)
+    ist_time = dt + ist_offset
+    return ist_time.strftime('%Y-%m-%d %H:%M:%S')
+
 
 def clean_data_for_csv(data):
     rows = []
     for entry in data:
-        print(f"entry --> {entry}")
-        trigger_time = entry['triggerDateTime'].replace(tzinfo=None)  # Make timezone naive
+        print(f"entry --> {entry['triggerDateTime']}, type: {type(entry['triggerDateTime'])}")
+        trigger_time = convert_to_ist_string(entry['triggerDateTime'])
         shift = entry['shift']
         main_list = entry['randomizerResult'].get('mainList', [])
         standby_list = entry['randomizerResult'].get('standbyList', [])
@@ -308,14 +313,14 @@ def clean_data_for_csv(data):
         for person in main_list:
             rows.append({
                 'TriggerDateTime': trigger_time,
-                'Shift': shift,
+                'ShiftTiming': shift,
                 'Category': 'Main',
                 **person
             })
         for person in standby_list:
             rows.append({
                 'TriggerDateTime': trigger_time,
-                'Shift': shift,
+                'Team': shift,
                 'Category': 'Standby',
                 **person
             })
