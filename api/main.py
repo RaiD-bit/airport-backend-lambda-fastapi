@@ -49,6 +49,8 @@ async def get_database_connection():
         get_database_connection.client = AsyncIOMotorClient(get_config()["MONGODB_URI"])
     return get_database_connection.client.get_default_database()
 
+async def get_database_connection_client():
+    return AsyncIOMotorClient(get_config()["MONGODB_URI"])
 
 origins = [
     "http://localhost",
@@ -93,33 +95,66 @@ async def create_user(user: UserRequest, users_dal: UserListDAL = Depends(get_us
         raise HTTPException(status_code=400, detail="User already exists")
 
 
+# @app.delete("/api/users/{userId}")
+# async def delete_user_by_userId(
+#         userId: str,
+#         users_dal: UserListDAL = Depends(get_users_dal),
+#         jobs_dal: JobsDAL = Depends(get_jobs_dal)
+# ):
+#     try:
+#         # Delete user from user collection
+        
+#         await users_dal.delete_user_by_email(userId)
+
+#         # Remove user from today's job document
+#         await jobs_dal.remove_user_from_current_job_doc(datetime.today().strftime('%Y-%m-%d'), userId)
+#         # print(f"userId: {userId} to be deleted")
+#         # db_connection = await get_database_connection_client()
+#         # async with db_connection.start_session() as session:
+#         #     async with session.start_transaction():
+#         #         # Delete user from user collection
+#         #         await users_dal.delete_user_by_email(userId)
+#         #         print(f"userId: {userId}")
+#         #         # Remove user from today's job document
+#         #         await jobs_dal.remove_user_from_current_job_doc(datetime.today().strftime('%Y-%m-%d'), userId)
+#         return {"message": "User deleted successfully"}
+#     except HTTPException as e:
+#         print(f"Error: {e}")
+#         raise HTTPException(status_code=e.status_code, detail=e.detail)
+#     except Exception as e:
+#         print(f"Error: {e}")
+#         raise HTTPException(status_code=500, detail="An error occurred while deleting the user")
+
 @app.delete("/api/users/{userId}")
 async def delete_user_by_userId(
-        userId: str,
-        users_dal: UserListDAL = Depends(get_users_dal),
-        jobs_dal: JobsDAL = Depends(get_jobs_dal)
+    userId: str,
+    users_dal: UserListDAL = Depends(get_users_dal),
+    jobs_dal: JobsDAL = Depends(get_jobs_dal)
 ):
+    db_connection = await get_database_connection_client()
+
     try:
-        # Delete user from user collection
-        
-        # await users_dal.delete_user_by_email(userId)
-
-        # Remove user from today's job document
-        # await jobs_dal.remove_user_from_current_job_doc(datetime.today().strftime('%Y-%m-%d'), userId)
-
-        async with await get_database_connection().start_session()  as session:
+        # Start a session
+        async with await db_connection.start_session() as session:
+            # Start a transaction
             async with session.start_transaction():
-                # Delete user from user collection
-                await users_dal.delete_user_by_email(userId)
-
+                # Delete user from the user collection
+                await users_dal.delete_user_by_email(userId, session=session)
+                
                 # Remove user from today's job document
-                await jobs_dal.remove_user_from_current_job_doc(datetime.today().strftime('%Y-%m-%d'), userId)
-        return {"message": "User deleted successfully"}
-    except HTTPException as e:
-        raise HTTPException(status_code=e.status_code, detail=e.detail)
+                await jobs_dal.remove_user_from_current_job_doc(
+                    datetime.today().strftime('%Y-%m-%d'), userId, session=session
+                )
+
+                # If both operations succeed, commit automatically
+                print(f"User {userId} deleted successfully in both collections")
+                
     except Exception as e:
+        # If any error occurs, it will automatically rollback
+        print(f"Error: {e}")
         raise HTTPException(status_code=500, detail="An error occurred while deleting the user")
 
+    return {"message": "User deleted successfully"}
 
 # update user
 
@@ -222,7 +257,9 @@ def get_random(user_list: List[EmployeeByShiftResponse]):
 
 @app.get("/api/randomizer/{shift}")
 async def get_random_users_by_shift(shift: str, date_string: str, jobs_dal: JobsDAL = Depends(get_jobs_dal)) -> RandomizerResponse1:
+    print(f"invoked !!!!")
     shift_details = await jobs_dal.get_shift_details_from_job_doc(date_string, shift)
+    print(f"shift_details: {shift_details}")
     allotted_team = shift_details[shift]
     user_list = await jobs_dal.get_active_users_id_by_shift(date_string, allotted_team)
     print(f"allotted_team: {allotted_team}")
