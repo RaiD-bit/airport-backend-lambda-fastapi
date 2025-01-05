@@ -47,6 +47,10 @@ class User(BaseModel):
                     employeeId=doc["employeeId"])
 
 
+class UserNotFoundError(Exception):
+    pass
+
+
 class UserListDAL:
     def __init__(self, user_collection: AsyncIOMotorCollection):
         print(user_collection.name)
@@ -100,6 +104,23 @@ class UserListDAL:
         response = await res
         print(f"response => {response.inserted_id}")
         return str(response.inserted_id)
+    
+    async def update_user(self, user_id: str, user: UserRequest) -> bool:
+        res = await self._user_collection.update_one(
+            {"employeeId": user_id},
+            {
+                "$set": {
+                    "name": user.name,
+                    "designation": user.designation,
+                    "email": user.email,
+                    "phone": user.phone,
+                    "shift": user.shift
+                }
+            }
+        )
+        if res.matched_count == 0:
+            raise UserNotFoundError(f"User with id {user_id} not found")
+        return res.modified_count > 0
 
     async def delete_user_by_email(self, email, session=None):
         res = self._user_collection.delete_one({"email": email})

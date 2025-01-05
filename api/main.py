@@ -12,7 +12,7 @@ import uvicorn
 from motor.motor_asyncio import AsyncIOMotorClient
 import random
 
-from dal import JobsDAL, ShiftUpdateRequest, UserListDAL, User, UserRequest, JobUserItem, ShiftDetail, \
+from dal import JobsDAL, ShiftUpdateRequest, UserListDAL, User, UserNotFoundError, UserRequest, JobUserItem, ShiftDetail, \
     EmployeeByShiftResponse, RandomizerResponse1
 
 # from api.dal import JobsDAL, ShiftUpdateRequest, UserListDAL, User, UserRequest, JobUserItem, ShiftDetail, \
@@ -95,35 +95,16 @@ async def create_user(user: UserRequest, users_dal: UserListDAL = Depends(get_us
         raise HTTPException(status_code=400, detail="User already exists")
 
 
-# @app.delete("/api/users/{userId}")
-# async def delete_user_by_userId(
-#         userId: str,
-#         users_dal: UserListDAL = Depends(get_users_dal),
-#         jobs_dal: JobsDAL = Depends(get_jobs_dal)
-# ):
-#     try:
-#         # Delete user from user collection
-        
-#         await users_dal.delete_user_by_email(userId)
+@app.put("/api/users/{user_id}")
+async def update_user(user_id: str, user: UserRequest, users_dal: UserListDAL = Depends(get_users_dal), jobs_dal: JobsDAL = Depends(get_jobs_dal)):
+    try:
+        await users_dal.update_user(user_id, user)
+        return {"message": "User updated successfully"}
+    except UserNotFoundError:
+        raise HTTPException(status_code=404, detail="User not found")
+    except DuplicateKeyError:
+        raise HTTPException(status_code=400, detail="User already exists")
 
-#         # Remove user from today's job document
-#         await jobs_dal.remove_user_from_current_job_doc(datetime.today().strftime('%Y-%m-%d'), userId)
-#         # print(f"userId: {userId} to be deleted")
-#         # db_connection = await get_database_connection_client()
-#         # async with db_connection.start_session() as session:
-#         #     async with session.start_transaction():
-#         #         # Delete user from user collection
-#         #         await users_dal.delete_user_by_email(userId)
-#         #         print(f"userId: {userId}")
-#         #         # Remove user from today's job document
-#         #         await jobs_dal.remove_user_from_current_job_doc(datetime.today().strftime('%Y-%m-%d'), userId)
-#         return {"message": "User deleted successfully"}
-#     except HTTPException as e:
-#         print(f"Error: {e}")
-#         raise HTTPException(status_code=e.status_code, detail=e.detail)
-#     except Exception as e:
-#         print(f"Error: {e}")
-#         raise HTTPException(status_code=500, detail="An error occurred while deleting the user")
 
 @app.delete("/api/users/{userId}")
 async def delete_user_by_userId(
