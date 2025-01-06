@@ -268,15 +268,15 @@ class JobsDAL:
         return {"inserted_id": str(res.inserted_id)}
 
     def populate_shifts(self, date_str, shift_detail):
-        days_passed_since_bigbang = (date_str - datetime(2025, 1, 2)).days
+        days_passed_since_bigbang = (date_str - datetime(2025, 1, 1)).days
         print(f"kitne din ho gye {days_passed_since_bigbang}")
-        shift_info = ['echo', 'delta', 'charlie', 'bravo', 'alpha']
+        shift_info_morning = ['echo', 'alpha', 'bravo', 'charlie', 'delta']
+        shift_info_afternoon = ['delta','echo', 'alpha', 'bravo', 'charlie']
+        shift_info_night = ['charlie','delta','echo' 'alpha', 'bravo']
         current_index = days_passed_since_bigbang%5  
-        next_index_1 = (current_index + 1) % len(shift_info)
-        next_index_2 = (current_index + 2) % len(shift_info)
-        shift_detail.morning = shift_info[current_index]
-        shift_detail.afternoon = shift_info[next_index_1]
-        shift_detail.night = shift_info[next_index_2]
+        shift_detail.morning = shift_info_morning[current_index]
+        shift_detail.afternoon = shift_info_afternoon[current_index]
+        shift_detail.night = shift_info_night[current_index]
         if date_str.weekday() != 5 or date_str.weekday() != 6:
             shift_detail.general = "general"
             shift_detail.ramc = "ramc"
