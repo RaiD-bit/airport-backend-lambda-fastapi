@@ -199,6 +199,8 @@ class RandomizerResponse(BaseModel):
 class RandomizerLogItem(BaseModel):
     triggerDateTime: datetime
     shift: str
+    shiftTiming: Optional[str] = None
+    category: Optional[str] = None
     randomizerResult: RandomizerResponse1
 
 class JobDocumentRequest(BaseModel):
