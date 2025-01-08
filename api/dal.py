@@ -274,7 +274,7 @@ class JobsDAL:
         print(f"kitne din ho gye {days_passed_since_bigbang}")
         shift_info_morning = ['echo', 'alpha', 'bravo', 'charlie', 'delta']
         shift_info_afternoon = ['delta','echo', 'alpha', 'bravo', 'charlie']
-        shift_info_night = ['charlie','delta','echo' 'alpha', 'bravo']
+        shift_info_night = ['charlie','delta','echo','alpha', 'bravo']
         current_index = days_passed_since_bigbang%5  
         shift_detail.morning = shift_info_morning[current_index]
         shift_detail.afternoon = shift_info_afternoon[current_index]
