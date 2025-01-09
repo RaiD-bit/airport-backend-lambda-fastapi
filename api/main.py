@@ -313,7 +313,7 @@ def clean_data_for_csv(data):
         for person in main_list:
             rows.append({
                 'TriggerDateTime': trigger_time,
-                'ShiftTiming': shift,
+                'Team': shift,
                 'Category': 'Main',
                 **person
             })
