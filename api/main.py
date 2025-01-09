@@ -324,6 +324,7 @@ def clean_data_for_csv(data):
                 'Category': 'Standby',
                 **person
             })
+            
         # rows.append(pd.DataFrame([{}]))  # Blank row
     return rows
 
